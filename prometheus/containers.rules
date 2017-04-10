@@ -1,26 +1,17 @@
-ALERT jenkins_down
-  IF absent(container_memory_usage_bytes{name="jenkins"})
-  FOR 30s
+ALERT visualiser_down
+  IF absent(container_memory_usage_bytes{name="visualiser"})
+  FOR 10s
   LABELS { severity = "critical" }
   ANNOTATIONS {
-    summary= "Jenkins down",
-    description= "Jenkins container is down for more than 30 seconds."
+    summary= "Visualiser down",
+    description= "Visualiser container is down for more than 30 seconds."
   }
 
- ALERT jenkins_high_cpu
-  IF sum(rate(container_cpu_usage_seconds_total{name="jenkins"}[1m])) / count(node_cpu{mode="system"}) * 100 > 10
+ ALERT stresser_high_cpu
+  IF sum(rate(container_cpu_usage_seconds_total{name="stress-app"}[1m])) / count(node_cpu{mode="system"}) * 100 > 10
   FOR 30s
   LABELS { severity = "warning" }
   ANNOTATIONS {
-    summary= "Jenkins high CPU usage",
-    description= "Jenkins CPU usage is {{ humanize $value}}%."
-  }
-
-ALERT jenkins_high_memory
-  IF sum(container_memory_usage_bytes{name="jenkins"}) > 1200000000
-  FOR 30s
-  LABELS { severity = "warning" }
-  ANNOTATIONS {
-      summary = "Jenkins high memory usage",
-      description = "Jenkins memory consumption is at {{ humanize $value}}.",
+    summary= "Stress application high CPU usage",
+    description= "Stress application CPU usage is {{ humanize $value}}%."
   }
