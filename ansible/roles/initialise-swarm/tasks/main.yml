@@ -1,0 +1,14 @@
+---
+# tasks file for initialise-swarm
+- name: initialize swarm cluster
+  shell: >
+    docker swarm init
+    --advertise-addr={{ swarm_iface | default('eth0') }}:2377
+  when: "'swarm_manager_running' not in groups"
+  register: not_running_first_node
+
+- name: add initialized host to swarm_manager_running group
+  add_host:
+    hostname: "{{ play_hosts[0] }}"
+    groups: swarm_manager_running
+  when: not_running_first_node | changed

@@ -1,0 +1,43 @@
+---
+# tasks file for docker-engine
+- name: Ensure the system can use the HTTPS transport for APT
+  stat:
+    path: /usr/lib/apt/methods/https
+  register: apt_https_transport
+
+- name: Install HTTPS transport for APT
+  apt:
+    pkg: apt-transport-https
+    state: installed
+  when: not apt_https_transport.stat.exists
+
+- name: Import Docker key into apt
+  apt_key:
+    keyserver: hkp://p80.pool.sks-keyservers.net:80
+    id: 58118E89F3A912897C070ADBF76221572C52609D
+
+- name: Add Docker deb repository
+  apt_repository:
+    repo: 'deb https://apt.dockerproject.org/repo ubuntu-trusty main'
+    state: present
+    update_cache: yes
+
+- name: Remove old Docker version
+  apt:
+    pkg: 'lxc-docker'
+    state: absent
+
+- name: Install Docker Engine
+  apt:
+    pkg:
+      - docker-engine={{docker_version}}*
+    state: installed
+
+- name: get docker compose
+  get_url:
+     url: https://github.com/docker/compose/releases/download/{{docker_compose_version}}/docker-compose-Linux-x86_64
+     dest: /usr/local/bin/docker-compose
+     mode: 0755
+
+- name: ensure docker runs without sudo
+  command: usermod -aG docker ubuntu

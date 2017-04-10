@@ -1,0 +1,144 @@
+---
+# create manager nodes 
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  user: root
+  pre_tasks:
+    - include_vars: ~/dev/docker_with_ansible/ec2_vars/managers.yml
+  roles:
+    - ~/dev/docker_with_ansible/roles/provision-ec2-managers
+
+# create worker nodes
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  user: root
+  pre_tasks:
+    - include_vars: ~/dev/docker_with_ansible/ec2_vars/nodes.yml
+  roles:
+    - ~/dev/docker_with_ansible/roles/provision-ec2-nodes
+
+# wait for all hosts to have ssh listening on port 22 before trying to connect
+- hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Wait for the instances to boot by checking the ssh port
+      wait_for: host={{item}} port=22 delay=30 timeout=320 state=started
+      with_items: 
+        - "{{ groups['nodes'] }}"
+
+# make sure the correct version of docker is installed on each instance
+- hosts: managers:nodes
+  gather_facts: false
+  become: true
+  roles:
+    - ~/dev/docker_with_ansible/roles/install-docker-engine
+
+# determine whether or not swarm mode is active on each manager node.
+# depending on whether it is running or not add it to either:
+# - swarm_manager_running
+# - swarm_manager_not_running
+# these groups will be used later on, for now it is just a fact-finding mission
+- hosts: managers
+  become: true
+  roles:
+    - ~/dev/docker_with_ansible/roles/create-swarm-manager-groups
+
+# determine whether or not swarm mode is active on each worker node.
+# depending on whether it is running or not add it to either:
+# - swarm_worker_running
+# - swarm_worker_not_running
+# these groups will be used later on, for now it is just a fact-finding mission    
+- hosts: nodes
+  become: true
+  roles:
+    - ~/dev/docker_with_ansible/roles/create-swarm-node-groups
+    
+# if all managers are running in swarm mode then this play will not run, there is a when 
+# clause in the role which means it will only run when no hosts are in the swarm_manager_running group
+- hosts: swarm_manager_not_running[0]
+  become: true
+  roles: 
+    - ~/dev/docker_with_ansible/roles/initialise-swarm
+
+# retrieves the manager and slave join tokens from the swarm and stores them for re-use
+- hosts: swarm_manager_running[0]
+  become: true
+  vars:
+    iface: "{{ swarm_iface | default('eth0') }}"
+  roles:
+    - ~/dev/docker_with_ansible/roles/setup-swarm
+    
+# catches any remaining managers currently not in the running group and adds them to the swarm
+- hosts: swarm_manager_not_running:!swarm_manager_running
+  become: true
+  vars:
+    token: "{{ hostvars[groups['swarm_manager_running'][0]]['swarm_manager_token']['stdout'] }}"
+  tasks:
+    - name: join manager nodes to cluster
+      shell: >
+        docker swarm join
+        --advertise-addr={{ swarm_iface | default('eth0') }}:2377
+        --token={{ token }}
+        {{ groups['swarm_manager_ips'][0] }}:2377
+
+# starts the swarm and connects any workers not running in swarm mode
+- hosts: swarm_worker_not_running
+  become: true
+  vars:
+    token: "{{ hostvars[groups['swarm_manager_running'][0]]['swarm_worker_token']['stdout'] }}"
+  tasks:
+    - name: join worker nodes to cluster
+      shell: >
+        docker swarm join
+        --advertise-addr={{ swarm_iface | default('eth0') }}:2377
+        --token={{ token }}
+        {{ groups['swarm_manager_ips'][0] }}:2377
+
+# starts the application on the swarm
+- hosts: swarm_manager_running[0]
+  become: true
+  tasks:
+    - name: start go application
+      shell: >
+        docker service create --name app --replicas 5 -p 80:8000 scoady2/whoami
+        
+# starts the application on the swarm
+- hosts: swarm_manager_running[0]
+  become: true
+  tasks:
+    - name: start nginx
+      shell: >
+        docker service create --name nginx --replicas 3 -p 80:80 nginx
+
+# starts the stress test application on the swarm
+- hosts: swarm_manager_running[0]
+  become: true
+  tasks:
+    - name: start stress test application
+      shell: >
+        docker service create --name stress-app --replicas 5 -ti -e MAX_CPU_CORES=1 -e STRESS_SYSTEM_FOR=20m petarmaric/docker.cpu-stress-test
+        
+- hosts: managers:nodes
+  become: true
+  tasks:
+    - name: clone git repository
+      shell: >
+        git clone https://github.com/StephenCoady/docker-statistics.git
+        
+- hosts: managers:nodes
+  become: true
+  tasks:
+    - name: start exporter containers on all hosts
+      shell: >
+        docker-compose -p ~/docker-statistics/ -f docker-compose.exporters.yml up -d
+
+# starts the visualisation app on the manager
+- hosts: swarm_manager_running[0]
+  gather_facts: true
+  become: true
+  tasks:
+    - name: start visualisation application
+      shell: >
+        docker run -it -d -p 8080:8080 -e HOST="{{ play_hosts[0] }}" -v /var/run/docker.sock:/var/run/docker.sock manomarks/visualizer
