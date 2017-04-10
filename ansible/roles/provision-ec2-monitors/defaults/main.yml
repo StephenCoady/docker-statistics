@@ -1,0 +1,4 @@
+---
+# defaults file for docker-engine
+docker_version: "1.12"
+docker_compose_version: "1.7.1"

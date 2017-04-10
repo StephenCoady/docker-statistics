@@ -1,5 +1,5 @@
 ---
- - name: Provision EC2 Managers
+ - name: Provision EC2 Monitor
    local_action:
      module: ec2
      key_name: "{{ ec2_keypair }}"
@@ -11,17 +11,15 @@
      instance_tags: '{"Name":"{{ec2_tag_Name}}","Type":"{{ec2_tag_Type}}","Environment":"{{ec2_tag_Environment}}"}'
      assign_public_ip: yes
      wait: true
-     count: "{{ manager_count }}"
+     count: 1
      volumes: 
      - device_name: /dev/sda1
        device_type: gp2
        volume_size: "{{ ec2_volume_size }}"
        delete_on_termination: true
    register: ec2
-
- - set_fact: ec2_managers_count={{ ec2_managers_count | int + 1 }}   
    
- - lineinfile: dest=~/dev/docker-statistics/ansible/dev insertafter='\[master\]' line="{{ item.public_ip }}"
+ - lineinfile: dest=~/dev/docker-statistics/ansible/dev insertafter='\[monitor\]' line="{{ item.public_ip }}"
    with_items: ec2.instances
 
  - add_host: name={{ item.public_ip }} >

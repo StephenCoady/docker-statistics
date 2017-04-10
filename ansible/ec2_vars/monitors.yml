@@ -1,11 +1,10 @@
 ec2_keypair: "eu-west-key"
-ec2_security_group: "sg-a708fdc1"
+ec2_security_group: "sg-f6fc3990"
 ec2_instance_type: "t2.micro"
 ec2_image: "ami-ed82e39e"
 ec2_subnet_id: "subnet-ec611e88"
 ec2_region: "eu-west-1"
-ec2_tag_Name: "loadbalancer"
-ec2_tag_Type: "loadbalancers"
+ec2_tag_Name: "monitor"
+ec2_tag_Type: "monitors"
 ec2_tag_Environment: "instances"
 ec2_volume_size: 8
-ec2_managers_count: 0

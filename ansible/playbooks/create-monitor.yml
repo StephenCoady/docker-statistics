@@ -1,0 +1,50 @@
+---
+# create monitor node 
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  user: root
+  pre_tasks:
+    - include_vars: ../ec2_vars/monitors.yml
+  roles:
+    - ../roles/provision-ec2-monitors
+    
+# wait for all hosts to have ssh listening on port 22 before trying to connect
+- hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Wait for the instances to boot by checking the ssh port
+      wait_for: host={{item}} port=22 delay=30 timeout=320 state=started
+      with_items: 
+        - "{{ groups['monitors'] }}"
+        
+        
+# make sure the correct version of docker is installed on each instance
+- hosts: monitors
+  gather_facts: false
+  become: true
+  roles:
+    - ../roles/install-docker-engine
+
+- hosts: monitors
+  become: true
+  tasks:
+    - name: clone git repository
+      shell: >
+        git clone https://github.com/StephenCoady/docker-statistics.git
+
+- hosts: monitors
+  become: true
+  tasks:
+    - name: Update Prometheus config
+      template: 
+        src=~/dev/docker-statistics/ansible/templates/prometheus.yml 
+        dest=docker-statistics/prometheus/prometheus.yml
+        backup=yes
+
+- hosts: monitors
+  become: true
+  tasks:
+    - name: start monitoring containers
+      shell: >
+        docker-compose -f docker-statistics/docker-compose.yml up -d
