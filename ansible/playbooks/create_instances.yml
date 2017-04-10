@@ -141,4 +141,4 @@
   tasks:
     - name: start visualisation application
       shell: >
-        docker run -it -d -p 8085:8080 -e HOST="{{ play_hosts[0] }}" -v /var/run/docker.sock:/var/run/docker.sock manomarks/visualizer
+        docker run -it -d -p 8085:8080 --name visualiser -e HOST="{{ play_hosts[0] }}" -v /var/run/docker.sock:/var/run/docker.sock manomarks/visualizer
