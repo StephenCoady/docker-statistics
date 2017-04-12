@@ -1,10 +1,10 @@
 ALERT visualiser_down
-  IF absent(container_memory_usage_bytes{name="visualiser"})
+  IF absent(container_cpu_user_seconds_total{name="visualiser"})
   FOR 10s
   LABELS { severity = "critical" }
   ANNOTATIONS {
     summary= "Visualiser down",
-    description= "Visualiser container is down for more than 30 seconds."
+    description= "Visualiser container is down for more than 10 seconds."
   }
 
  ALERT stresser_high_cpu

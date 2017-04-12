@@ -1,5 +1,5 @@
 ALERT high_cpu_load
-  IF sum(rate(node_cpu[1m])) by (mode) * 100 / count_scalar(node_cpu{mode="user"}) > 80
+  IF sum(rate(node_cpu[1m])) by (mode) * 100 / count_scalar(node_cpu{mode="user"}) > 30
   FOR 30s
   LABELS { severity = "warning" }
   ANNOTATIONS {
